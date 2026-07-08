@@ -3,9 +3,10 @@ import { v4 as uuidv4 } from "uuid";
 import { SHEET_SCHEMAS, type SheetName } from "./types";
 
 type JWTClient = InstanceType<typeof google.auth.JWT>;
+type SheetMeta = { title: string; sheetId: number };
 
 let sheetsClient: sheets_v4.Sheets | null = null;
-let sheetIdCache: Map<string, number> | null = null;
+let sheetMetaCache: SheetMeta[] | null = null;
 
 function getEnv(name: string): string {
   const value = process.env[name];
@@ -38,51 +39,80 @@ function getSpreadsheetId(): string {
   return getEnv("GOOGLE_SHEET_ID");
 }
 
-async function getSheetIdByName(sheetName: SheetName): Promise<number> {
-  if (sheetIdCache?.has(sheetName)) {
-    return sheetIdCache.get(sheetName)!;
-  }
+/** Normaliza um nome de aba para comparação tolerante a acento, caixa e espaços. */
+const DIACRITICS_REGEX = new RegExp(
+  "[" + String.fromCharCode(0x0300) + "-" + String.fromCharCode(0x036f) + "]",
+  "g"
+);
+
+function normalizeTitle(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(DIACRITICS_REGEX, "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Envolve o nome real da aba em aspas simples para uso em notação A1 (necessário se tiver espaço/acento). */
+function quoteTitle(title: string): string {
+  return `'${title.replace(/'/g, "''")}'`;
+}
+
+async function getSpreadsheetMeta(): Promise<SheetMeta[]> {
+  if (sheetMetaCache) return sheetMetaCache;
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
   const meta = await client.spreadsheets.get({ spreadsheetId });
-  sheetIdCache = new Map();
-  for (const sheet of meta.data.sheets ?? []) {
-    const title = sheet.properties?.title;
-    const id = sheet.properties?.sheetId;
-    if (title != null && id != null) {
-      sheetIdCache.set(title, id);
-    }
-  }
-  const found = sheetIdCache.get(sheetName);
-  if (found == null) {
+  sheetMetaCache = (meta.data.sheets ?? []).map((s) => ({
+    title: s.properties?.title ?? "",
+    sheetId: s.properties?.sheetId ?? 0,
+  }));
+  return sheetMetaCache;
+}
+
+/** Encontra a aba real correspondente a um nome esperado (ex: "Movimentacoes"),
+ * tolerando diferenças de acento, maiúscula/minúscula e espaços nas pontas. */
+async function resolveSheet(sheetName: SheetName): Promise<SheetMeta> {
+  const metas = await getSpreadsheetMeta();
+  const target = normalizeTitle(sheetName);
+  const found = metas.find((m) => normalizeTitle(m.title) === target);
+  if (!found) {
+    const disponiveis =
+      metas.map((m) => `"${m.title}"`).join(", ") || "(nenhuma aba encontrada)";
     throw new Error(
-      `Aba "${sheetName}" não encontrada na planilha. Crie uma aba com esse nome exato.`
+      `Não encontrei uma aba equivalente a "${sheetName}" na planilha. ` +
+        `Abas encontradas na planilha: ${disponiveis}. ` +
+        `Renomeie uma delas para "${sheetName}".`
     );
   }
   return found;
 }
 
-async function ensureHeaders(sheetName: SheetName): Promise<string[]> {
+async function ensureHeaders(
+  sheetName: SheetName
+): Promise<{ headers: string[]; title: string }> {
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
+  const { title } = await resolveSheet(sheetName);
+  const q = quoteTitle(title);
   const headers = [...SHEET_SCHEMAS[sheetName]];
 
   const res = await client.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A1:Z1`,
+    range: `${q}!A1:Z1`,
   });
 
   const firstRow = res.data.values?.[0];
   if (!firstRow || firstRow.length === 0) {
     await client.spreadsheets.values.update({
       spreadsheetId,
-      range: `${sheetName}!A1`,
+      range: `${q}!A1`,
       valueInputOption: "RAW",
       requestBody: { values: [headers] },
     });
-    return headers;
+    return { headers, title };
   }
-  return firstRow as string[];
+  return { headers: firstRow as string[], title };
 }
 
 /** Lê todas as linhas de uma aba como objetos { coluna: valor }, incluindo o número da linha real na planilha (base 1). */
@@ -91,11 +121,12 @@ export async function getRows<T extends Record<string, string>>(
 ): Promise<Array<T & { _row: number }>> {
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
-  const headers = await ensureHeaders(sheetName);
+  const { headers, title } = await ensureHeaders(sheetName);
+  const q = quoteTitle(title);
 
   const res = await client.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A2:Z`,
+    range: `${q}!A2:Z`,
   });
 
   const rows = res.data.values ?? [];
@@ -124,14 +155,15 @@ export async function appendRow(
 ): Promise<string> {
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
-  const headers = await ensureHeaders(sheetName);
+  const { headers, title } = await ensureHeaders(sheetName);
+  const q = quoteTitle(title);
 
   const id = data.id || uuidv4();
   const row = headers.map((h) => (h === "id" ? id : data[h] ?? ""));
 
   await client.spreadsheets.values.append({
     spreadsheetId,
-    range: `${sheetName}!A:Z`,
+    range: `${q}!A:Z`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values: [row] },
@@ -147,7 +179,8 @@ export async function updateRowById(
 ): Promise<boolean> {
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
-  const headers = await ensureHeaders(sheetName);
+  const { headers, title } = await ensureHeaders(sheetName);
+  const q = quoteTitle(title);
   const existing = await getRowById(sheetName, id);
   if (!existing) return false;
 
@@ -157,7 +190,7 @@ export async function updateRowById(
 
   await client.spreadsheets.values.update({
     spreadsheetId,
-    range: `${sheetName}!A${existing._row}:Z${existing._row}`,
+    range: `${q}!A${existing._row}:Z${existing._row}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [merged] },
   });
@@ -174,7 +207,7 @@ export async function deleteRowById(
 
   const client = getClient();
   const spreadsheetId = getSpreadsheetId();
-  const gid = await getSheetIdByName(sheetName);
+  const { sheetId } = await resolveSheet(sheetName);
 
   await client.spreadsheets.batchUpdate({
     spreadsheetId,
@@ -183,7 +216,7 @@ export async function deleteRowById(
         {
           deleteDimension: {
             range: {
-              sheetId: gid,
+              sheetId,
               dimension: "ROWS",
               startIndex: existing._row - 1,
               endIndex: existing._row,
