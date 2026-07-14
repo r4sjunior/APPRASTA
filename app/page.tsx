@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRows } from "@/lib/sheets";
+import { getRows } from "@/lib/db";
 import type { Produto, Loja, Movimentacao } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -44,9 +44,9 @@ export default async function DashboardPage() {
 
   try {
     [produtos, lojas, movimentacoes] = await Promise.all([
-      getRows<Produto>("Produtos"),
-      getRows<Loja>("Lojas"),
-      getRows<Movimentacao>("Movimentacoes"),
+      getRows<Produto>("produtos"),
+      getRows<Loja>("lojas"),
+      getRows<Movimentacao>("movimentacoes"),
     ]);
   } catch (err) {
     erro = (err as Error).message;
@@ -56,12 +56,12 @@ export default async function DashboardPage() {
     return (
       <div className="card p-6">
         <h1 className="mb-2 text-lg font-bold text-brand-red">
-          Erro ao conectar com o Google Sheets
+          Erro ao conectar com o banco de dados
         </h1>
         <p className="text-sm text-neutral-600">{erro}</p>
         <p className="mt-4 text-sm text-neutral-500">
           Confira o arquivo <code>.env.local</code> e o README para configurar
-          a conta de serviço e o ID da planilha.
+          o projeto Supabase.
         </p>
       </div>
     );

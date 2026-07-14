@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRowById } from "@/lib/sheets";
+import { getRowById } from "@/lib/db";
 import type { Loja } from "@/lib/types";
 import { LojaForm } from "@/components/LojaForm";
 
@@ -11,7 +11,7 @@ export default async function EditarLojaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const loja = await getRowById<Loja>("Lojas", id);
+  const loja = await getRowById<Loja>("lojas", id);
   if (!loja) notFound();
 
   return (

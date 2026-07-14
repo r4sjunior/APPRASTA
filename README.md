@@ -2,7 +2,7 @@
 
 Recriação, fora do AppSheet, do app de controle de estoque consignado de merch
 (CDs, vinis, camisetas, bonés, acessórios) distribuído para lojas parceiras.
-Feito em **Next.js** usando o **Google Sheets** como banco de dados.
+Feito em **Next.js** usando **Supabase (Postgres)** como banco de dados.
 
 Entidades:
 
@@ -14,35 +14,28 @@ Entidades:
 O dashboard calcula automaticamente o **saldo consignado por loja/produto** a
 partir do histórico de movimentações.
 
-## 1. Criar a planilha do Google Sheets
+O app inteiro fica protegido por **HTTP Basic Auth** (usuário/senha únicos,
+via variável de ambiente) — não há cadastro de usuários, é pensado para uso
+interno da equipe.
 
-1. Crie uma planilha nova no Google Sheets.
-2. Renomeie as 3 primeiras abas exatamente como:
-   - `Produtos`
-   - `Lojas`
-   - `Movimentacoes`
-3. Não precisa criar os cabeçalhos manualmente — o app cria a primeira linha
-   (`id`, `nome`, ...) sozinho na primeira vez que acessar cada aba vazia.
-4. Copie o **ID da planilha** (o trecho da URL entre `/d/` e `/edit`):
-   `https://docs.google.com/spreadsheets/d/ESSE_TRECHO_AQUI/edit`
+## 1. Criar o projeto no Supabase
 
-## 2. Criar a conta de serviço (Service Account) do Google
+1. Crie uma conta e um projeto em [supabase.com](https://supabase.com/).
+2. No painel do projeto, vá em **SQL Editor > New query**, cole o conteúdo de
+   [`supabase/schema.sql`](./supabase/schema.sql) e rode. Isso cria as tabelas
+   `produtos`, `lojas` e `movimentacoes`.
+3. Vá em **Project Settings > API** e copie:
+   - **Project URL** → vai virar `SUPABASE_URL`
+   - **service_role key** (na seção "Project API keys") → vai virar
+     `SUPABASE_SERVICE_ROLE_KEY`
 
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/).
-2. Crie um projeto (ou use um existente).
-3. Ative a **Google Sheets API** em "APIs e serviços > Biblioteca".
-4. Vá em "APIs e serviços > Credenciais" > "Criar credenciais" > **Conta de
-   serviço**.
-5. Após criar, abra a conta de serviço > aba "Chaves" > "Adicionar chave" >
-   **Criar nova chave** > formato **JSON**. Um arquivo `.json` será baixado.
-6. Abra o arquivo baixado e copie:
-   - `client_email` → vai virar `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `private_key` → vai virar `GOOGLE_PRIVATE_KEY`
-7. **Compartilhe a planilha do Google Sheets** com o e-mail da conta de
-   serviço (`client_email`), dando permissão de **Editor**. Sem esse passo o
-   app não consegue ler nem escrever na planilha.
+> ⚠️ A `service_role key` dá acesso total ao banco, ignorando qualquer regra
+> de segurança (RLS). Ela só pode ser usada em código de servidor — nunca a
+> prefixe com `NEXT_PUBLIC_` nem a exponha no client. Neste projeto ela só é
+> lida em `lib/db.ts`, que roda exclusivamente em API routes e Server
+> Components.
 
-## 3. Configurar variáveis de ambiente localmente
+## 2. Configurar variáveis de ambiente localmente
 
 Copie `.env.example` para `.env.local` e preencha:
 
@@ -51,53 +44,57 @@ cp .env.example .env.local
 ```
 
 ```env
-GOOGLE_SERVICE_ACCOUNT_EMAIL=nome-da-conta@seu-projeto.iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMII...\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEET_ID=1AbCDefGhIjKLmnoPQRstuVwXYz
+SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+APP_USER=admin
+APP_PASSWORD=escolha-uma-senha-forte
 ```
 
-> Importante: `GOOGLE_PRIVATE_KEY` deve manter as quebras de linha como `\n`
-> dentro de uma única string entre aspas, exatamente como vem no JSON baixado.
+`APP_USER`/`APP_PASSWORD` são a credencial do Basic Auth que protege o app —
+o navegador vai pedir usuário e senha na primeira visita.
 
-## 4. Rodar localmente
+## 3. Rodar localmente
 
 ```bash
 npm install
 npm run dev
 ```
 
-Acesse `http://localhost:3000`.
+Acesse `http://localhost:3000` e informe o usuário/senha configurados.
 
-## 5. Subir para o GitHub
+## 4. Subir para o GitHub
 
 ```bash
 git init
 git add .
-git commit -m "feat: merch control app com Google Sheets"
+git commit -m "feat: merch control app com Supabase como banco de dados"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/merch-control.git
 git push -u origin main
 ```
 
-## 6. Deploy na Vercel
+## 5. Deploy na Vercel
 
 1. Acesse [vercel.com/new](https://vercel.com/new) e importe o repositório do
    GitHub.
 2. O Next.js é detectado automaticamente — não precisa mudar nada no build.
-3. Em **Environment Variables**, adicione as mesmas 3 variáveis do
+3. Em **Environment Variables**, adicione as mesmas 4 variáveis do
    `.env.local`:
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `GOOGLE_PRIVATE_KEY`
-   - `GOOGLE_SHEET_ID`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `APP_USER`
+   - `APP_PASSWORD`
 4. Clique em **Deploy**.
 
 Ou via CLI, depois de `npm i -g vercel`:
 
 ```bash
 vercel link
-vercel env add GOOGLE_SERVICE_ACCOUNT_EMAIL
-vercel env add GOOGLE_PRIVATE_KEY
-vercel env add GOOGLE_SHEET_ID
+vercel env add SUPABASE_URL
+vercel env add SUPABASE_SERVICE_ROLE_KEY
+vercel env add APP_USER
+vercel env add APP_PASSWORD
 vercel --prod
 ```
 
@@ -110,8 +107,10 @@ app/
   lojas/                    Lista, cadastro e edição de lojas
   movimentacoes/            Lista, cadastro e edição de movimentações
   api/produtos, api/lojas, api/movimentacoes
-                             Rotas REST que leem/gravam no Google Sheets
-lib/sheets.ts               Client do Google Sheets + CRUD genérico
-lib/types.ts                Tipos e schema das abas
+                             Rotas REST que leem/gravam no Supabase
+lib/db.ts                   Client do Supabase + CRUD genérico
+lib/types.ts                Tipos das entidades e campos numéricos por tabela
 components/                 Nav e formulários (Produto, Loja, Movimentação)
+supabase/schema.sql          Schema das tabelas (rodar no SQL Editor do Supabase)
+proxy.ts                      HTTP Basic Auth protegendo o app inteiro
 ```

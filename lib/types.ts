@@ -33,18 +33,11 @@ export type Movimentacao = {
   observacoes: string;
 };
 
-export const SHEET_SCHEMAS = {
-  Produtos: ["id", "nome", "descricao", "categoria", "imagem_url"],
-  Lojas: ["id", "nome", "cidade", "telefone", "endereco"],
-  Movimentacoes: [
-    "id",
-    "loja_id",
-    "produto_id",
-    "quantidade",
-    "tipo",
-    "data",
-    "observacoes",
-  ],
-} as const;
+export type TableName = "produtos" | "lojas" | "movimentacoes";
 
-export type SheetName = keyof typeof SHEET_SCHEMAS;
+/** Campos numéricos por tabela — precisam ser convertidos antes de gravar no Postgres. */
+export const NUMERIC_FIELDS: Record<TableName, string[]> = {
+  produtos: [],
+  lojas: [],
+  movimentacoes: ["quantidade"],
+};

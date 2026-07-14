@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRowById } from "@/lib/sheets";
+import { getRowById } from "@/lib/db";
 import type { Produto } from "@/lib/types";
 import { ProdutoForm } from "@/components/ProdutoForm";
 
@@ -11,7 +11,7 @@ export default async function EditarProdutoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const produto = await getRowById<Produto>("Produtos", id);
+  const produto = await getRowById<Produto>("produtos", id);
   if (!produto) notFound();
 
   return (

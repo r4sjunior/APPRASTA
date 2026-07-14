@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRowById } from "@/lib/sheets";
+import { getRowById } from "@/lib/db";
 import type { Movimentacao } from "@/lib/types";
 import { MovimentacaoForm } from "@/components/MovimentacaoForm";
 
@@ -11,7 +11,7 @@ export default async function EditarMovimentacaoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const movimentacao = await getRowById<Movimentacao>("Movimentacoes", id);
+  const movimentacao = await getRowById<Movimentacao>("movimentacoes", id);
   if (!movimentacao) notFound();
 
   return (

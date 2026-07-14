@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRows, appendRow } from "@/lib/sheets";
+import { getRows, appendRow } from "@/lib/db";
 import type { Loja } from "@/lib/types";
 
 export async function GET() {
   try {
-    const lojas = await getRows<Loja>("Lojas");
+    const lojas = await getRows<Loja>("lojas");
     return NextResponse.json(lojas);
   } catch (err) {
     return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const id = await appendRow("Lojas", body);
+    const id = await appendRow("lojas", body);
     return NextResponse.json({ id }, { status: 201 });
   } catch (err) {
     return NextResponse.json(

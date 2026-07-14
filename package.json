@@ -9,17 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "googleapis": "^173.0.0",
+    "@supabase/supabase-js": "^2.48.1",
     "next": "16.2.10",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "uuid": "^11.0.5"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.19.0",
     "eslint-config-next": "16.2.10",
