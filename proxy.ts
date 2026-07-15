@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifySessionToken } from "@/lib/auth";
 
-export function proxy(req: NextRequest) {
+const PUBLIC_PATHS = ["/login", "/pendente"];
+
+function isPublicPath(pathname: string): boolean {
+  return (
+    PUBLIC_PATHS.some((p) => pathname === p) ||
+    pathname.startsWith("/api/auth/")
+  );
+}
+
+export async function proxy(req: NextRequest) {
   const appUser = process.env.APP_USER || "admin";
   const appPassword = process.env.APP_PASSWORD;
 
@@ -15,19 +25,51 @@ export function proxy(req: NextRequest) {
   }
 
   const authHeader = req.headers.get("authorization");
+  let basicAuthOk = false;
   if (authHeader?.startsWith("Basic ")) {
     const [user, password] = Buffer.from(authHeader.slice(6), "base64")
       .toString()
       .split(":");
-    if (user === appUser && password === appPassword) {
-      return NextResponse.next();
-    }
+    basicAuthOk = user === appUser && password === appPassword;
   }
 
-  return new NextResponse("Autenticação necessária.", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Merch Control"' },
-  });
+  if (!basicAuthOk) {
+    return new NextResponse("Autenticação necessária.", {
+      status: 401,
+      headers: { "WWW-Authenticate": 'Basic realm="Merch Control"' },
+    });
+  }
+
+  // A partir daqui o Basic Auth (camada extra do app inteiro) já passou —
+  // agora checamos o login/papel de cada usuário (admin vs loja).
+  const { pathname } = req.nextUrl;
+
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const session = await verifySessionToken(req.cookies.get("session")?.value);
+
+  if (!session) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (session.role === "admin") {
+    return NextResponse.next();
+  }
+
+  // session.role === "loja"
+  if (session.status !== "aprovado") {
+    return NextResponse.redirect(new URL("/pendente", req.url));
+  }
+
+  const lojaAllowed =
+    pathname.startsWith("/loja") || pathname.startsWith("/api/loja");
+  if (!lojaAllowed) {
+    return NextResponse.redirect(new URL("/loja", req.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

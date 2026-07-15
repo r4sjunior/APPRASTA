@@ -13,6 +13,8 @@ export function ProdutoForm({ produto }: { produto?: Produto }) {
     descricao: produto?.descricao ?? "",
     categoria: produto?.categoria ?? CATEGORIAS[0],
     imagem_url: produto?.imagem_url ?? "",
+    preco: produto?.preco ?? "0",
+    estoque_geral: produto?.estoque_geral ?? "0",
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -95,6 +97,33 @@ export function ProdutoForm({ produto }: { produto?: Produto }) {
           value={form.imagem_url}
           onChange={(e) => setForm({ ...form, imagem_url: e.target.value })}
         />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label">Preço (R$)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            className="input"
+            required
+            value={form.preco}
+            onChange={(e) => setForm({ ...form, preco: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="label">Estoque geral</label>
+          <input
+            type="number"
+            min={0}
+            className="input"
+            required
+            value={form.estoque_geral}
+            onChange={(e) =>
+              setForm({ ...form, estoque_geral: e.target.value })
+            }
+          />
+        </div>
       </div>
 
       {erro && <p className="text-sm text-brand-red">{erro}</p>}

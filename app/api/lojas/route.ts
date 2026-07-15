@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRows, appendRow } from "@/lib/db";
 import type { Loja } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
   try {
     const lojas = await getRows<Loja>("lojas");

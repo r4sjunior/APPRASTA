@@ -2,25 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Role } from "@/lib/types";
+import { LogoutButton } from "./LogoutButton";
 
-const items = [
+const ADMIN_ITEMS = [
+  { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/produtos", label: "Produtos", icon: "📦" },
   { href: "/lojas", label: "Lojas", icon: "🏪" },
   { href: "/movimentacoes", label: "Movimentação", icon: "🔁" },
+  { href: "/admin/pedidos", label: "Pedidos", icon: "🧾" },
+  { href: "/admin/trocas", label: "Trocas", icon: "↩️" },
+  { href: "/admin/usuarios", label: "Cadastros", icon: "✅" },
+  { href: "/admin/relatorios", label: "Relatórios", icon: "📁" },
 ];
 
-export function Nav() {
+const LOJA_ITEMS = [
+  { href: "/loja", label: "Estoque", icon: "📦" },
+  { href: "/loja/pedidos", label: "Pedidos", icon: "🧾" },
+  { href: "/loja/pagamentos", label: "Pagamentos", icon: "💳" },
+  { href: "/loja/trocas", label: "Trocas", icon: "↩️" },
+];
+
+export function Nav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const items = role === "admin" ? ADMIN_ITEMS : LOJA_ITEMS;
+  const homeHref = role === "admin" ? "/" : "/loja";
 
   return (
     <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <Link
+          href={homeHref}
+          className="flex items-center gap-2 font-bold text-lg"
+        >
           <span className="text-brand-red">●</span> Merch Control
         </Link>
-        <nav className="flex gap-1">
+        <nav className="flex flex-1 flex-wrap gap-1">
           {items.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active =
+              item.href === homeHref
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -37,6 +59,7 @@ export function Nav() {
             );
           })}
         </nav>
+        <LogoutButton className="text-sm font-medium text-neutral-500 hover:text-brand-red transition" />
       </div>
     </header>
   );

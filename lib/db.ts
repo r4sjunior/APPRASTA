@@ -13,7 +13,10 @@ function getEnv(name: string): string {
 
 let client: ReturnType<typeof createClient> | null = null;
 
-function getClient() {
+/** Client do Supabase com a service_role key — só roda em código de
+ * servidor. Também usado por lib/auth.ts para autenticação (Admin API e
+ * signInWithPassword) e para chamar RPCs de negócio (ex: aprovar_pedido). */
+export function getClient() {
   if (!client) {
     client = createClient(
       getEnv("SUPABASE_URL"),
@@ -68,6 +71,22 @@ export async function getRows<T extends Record<string, string>>(
   return (data ?? []).map((row) => toStringRow<T>(row));
 }
 
+/** Lê as linhas de uma tabela filtradas por uma coluna — usado pelas
+ * páginas de loja para restringir a leitura aos próprios registros
+ * (ex: getRowsBy("pedidos", "loja_id", lojaId)). */
+export async function getRowsBy<T extends Record<string, string>>(
+  table: TableName,
+  column: string,
+  value: string
+): Promise<T[]> {
+  const { data, error } = await getClient()
+    .from(table)
+    .select("*")
+    .eq(column, value);
+  if (error) throw friendlyError(error);
+  return (data ?? []).map((row) => toStringRow<T>(row));
+}
+
 export async function getRowById<T extends Record<string, string>>(
   table: TableName,
   id: string
@@ -95,6 +114,21 @@ export async function appendRow(
     .single();
   if (error) throw friendlyError(error);
   return (inserted as { id: string }).id;
+}
+
+/** Insere uma linha com um `id` explícito (em vez de deixar o Postgres
+ * gerar um) — usado só para `profiles`, cujo id precisa ser o mesmo do
+ * usuário criado no Supabase Auth. */
+export async function insertRowWithId(
+  table: TableName,
+  id: string,
+  data: Record<string, string>
+): Promise<void> {
+  const { error } = await (getClient().from(table) as any).insert({
+    id,
+    ...toDbRow(table, data),
+  });
+  if (error) throw friendlyError(error);
 }
 
 export async function updateRowById(
