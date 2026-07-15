@@ -9,3 +9,6 @@
 .DS_Store
 next-env.d.ts
 /prints app/
+
+.vercel
+.env*
