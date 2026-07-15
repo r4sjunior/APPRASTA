@@ -1,6 +1,12 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import { getClient, getRowById, appendRow, insertRowWithId } from "./db";
+import {
+  getClient,
+  createAuthClient,
+  getRowById,
+  appendRow,
+  insertRowWithId,
+} from "./db";
 import type { Profile, Role, StatusConta } from "./types";
 
 /** O admin não usa e-mail: na tela de login ele só digita "cryptorastaadm" +
@@ -96,7 +102,7 @@ export async function login(
     throw credenciaisInvalidas();
   }
 
-  const { data, error } = await getClient().auth.signInWithPassword({
+  const { data, error } = await createAuthClient().auth.signInWithPassword({
     email,
     password: senha,
   });

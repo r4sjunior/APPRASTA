@@ -14,8 +14,14 @@ function getEnv(name: string): string {
 let client: ReturnType<typeof createClient> | null = null;
 
 /** Client do Supabase com a service_role key — só roda em código de
- * servidor. Também usado por lib/auth.ts para autenticação (Admin API e
- * signInWithPassword) e para chamar RPCs de negócio (ex: aprovar_pedido). */
+ * servidor. Também usado por lib/auth.ts para a Admin API (createUser) e
+ * para chamar RPCs de negócio (ex: aprovar_pedido). NUNCA passar este client
+ * para `auth.signInWithPassword` — isso troca a sessão interna dele para a
+ * do usuário autenticado, e todo select/insert seguinte nesse mesmo client
+ * (inclusive em outras requisições, já que instâncias de função são
+ * reaproveitadas) passa a rodar como esse usuário em vez de service_role,
+ * fazendo leituras protegidas por RLS voltarem vazias. Use
+ * `createAuthClient()` para isso. */
 export function getClient() {
   if (!client) {
     client = createClient(
@@ -25,6 +31,17 @@ export function getClient() {
     );
   }
   return client;
+}
+
+/** Client novo e descartável, só para `auth.signInWithPassword` — nunca é
+ * reaproveitado, então a troca de sessão interna do client não vaza para
+ * outras leituras/requisições (veja o comentário de getClient()). */
+export function createAuthClient() {
+  return createClient(
+    getEnv("SUPABASE_URL"),
+    getEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    { auth: { persistSession: false } }
+  );
 }
 
 /** Converte os valores de uma linha do Postgres para string, para bater com
