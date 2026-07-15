@@ -37,11 +37,6 @@ O dashboard do admin calcula automaticamente o **saldo consignado por
 loja/produto** a partir do histórico de movimentações, além dos indicadores
 financeiros acima.
 
-O app inteiro também fica protegido por **HTTP Basic Auth** (usuário/senha
-únicos, via variável de ambiente) como uma camada extra na frente do login —
-isso não substitui o cadastro de admin/lojas, só protege o domínio de acessos
-totalmente anônimos.
-
 ## 1. Criar o projeto no Supabase
 
 1. Crie uma conta e um projeto em [supabase.com](https://supabase.com/).
@@ -76,16 +71,11 @@ cp .env.example .env.local
 SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-APP_USER=admin
-APP_PASSWORD=escolha-uma-senha-forte
-
 SESSION_SECRET=gere-um-valor-aleatorio-longo
 ```
 
-`APP_USER`/`APP_PASSWORD` são a credencial do Basic Auth que protege o app —
-o navegador vai pedir usuário e senha na primeira visita. `SESSION_SECRET`
-assina o cookie de sessão usado pelo login de admin/lojas (gere com, por
-exemplo, `openssl rand -base64 32`).
+`SESSION_SECRET` assina o cookie de sessão usado pelo login de admin/lojas
+(gere com, por exemplo, `openssl rand -base64 32`).
 
 ## 3. Criar a conta admin (`cryptorastaadm`)
 
@@ -109,9 +99,8 @@ npm install
 npm run dev
 ```
 
-Acesse `http://localhost:3000`, informe o usuário/senha do Basic Auth e, na
-tela de login do app, entre como admin (`cryptorastaadm`) ou crie uma conta
-de loja pela aba "Criar conta".
+Acesse `http://localhost:3000` — na tela de login do app, entre como admin
+(`cryptorastaadm`) ou crie uma conta de loja pela aba "Criar conta".
 
 ## 5. Subir para o GitHub
 
@@ -133,8 +122,6 @@ git push -u origin main
    `.env.local`:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `APP_USER`
-   - `APP_PASSWORD`
    - `SESSION_SECRET`
 4. Clique em **Deploy**.
 5. Depois do primeiro deploy, rode `node scripts/seed-admin.mjs` localmente
@@ -147,8 +134,6 @@ Ou via CLI, depois de `npm i -g vercel`:
 vercel link
 vercel env add SUPABASE_URL
 vercel env add SUPABASE_SERVICE_ROLE_KEY
-vercel env add APP_USER
-vercel env add APP_PASSWORD
 vercel env add SESSION_SECRET
 vercel --prod
 ```
@@ -184,5 +169,5 @@ lib/types.ts                 Tipos das entidades e campos numéricos por tabela
 components/                  Nav, formulários (Produto, Loja, Movimentação, Pedido, Troca) e login
 supabase/schema.sql          Schema das tabelas + função aprovar_pedido (rodar no SQL Editor)
 scripts/seed-admin.mjs       Cria a conta admin "cryptorastaadm" (rodar uma vez)
-proxy.ts                     HTTP Basic Auth + checagem de login/papel (admin vs loja)
+proxy.ts                     Checagem de login/papel (admin vs loja) e redirecionamentos
 ```
